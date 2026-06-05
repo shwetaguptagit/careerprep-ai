@@ -1,65 +1,330 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+function UploadIcon({ color }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '8px' }}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+  );
+}
+
+function CheckIcon({ color }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '6px' }}>
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  );
+}
 
 export default function Home() {
+  const router = useRouter();
+
+  const [isDark, setIsDark] = useState(true);
+  const [jdMode, setJdMode] = useState('text');
+  const [jdText, setJdText] = useState('');
+  const [jdFile, setJdFile] = useState(null);
+  const [cvFile, setCvFile] = useState(null);
+  const [jdError, setJdError] = useState('');
+  const [cvError, setCvError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const jdFileRef = useRef(null);
+  const cvFileRef = useRef(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    setIsDark(mq.matches);
+    const handler = (e) => setIsDark(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  const c = isDark ? {
+    pageBg:       '#0a0a0a',
+    cardBg:       '#141414',
+    cardBorder:   '#262626',
+    inputBg:      '#1a1a1a',
+    inputBorder:  '#2e2e2e',
+    toggleBg:     '#1a1a1a',
+    toggleBorder: '#2e2e2e',
+    activeBtn:    '#2a2a2a',
+    activeShadow: '0 1px 3px rgba(0,0,0,0.4)',
+    textPrimary:  '#ededed',
+    textSecondary:'#888888',
+    textMuted:    '#555555',
+    badgeBg:      '#1a1a1a',
+    badgeBorder:  '#2e2e2e',
+    ctaBg:        '#ffffff',
+    ctaHover:     '#e5e5e5',
+    ctaText:      '#0a0a0a',
+    uploadBorder: '#2e2e2e',
+    uploadBg:     '#1a1a1a',
+    uploadIcon:   '#555555',
+    successBorder:'#166534',
+    successBg:    '#052e16',
+    successText:  '#4ade80',
+    errorText:    '#f87171',
+  } : {
+    pageBg:       '#f9fafb',
+    cardBg:       '#ffffff',
+    cardBorder:   '#e5e7eb',
+    inputBg:      '#f9fafb',
+    inputBorder:  '#e5e7eb',
+    toggleBg:     '#f3f4f6',
+    toggleBorder: '#e5e7eb',
+    activeBtn:    '#ffffff',
+    activeShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    textPrimary:  '#111827',
+    textSecondary:'#6b7280',
+    textMuted:    '#9ca3af',
+    badgeBg:      '#f3f4f6',
+    badgeBorder:  '#e5e7eb',
+    ctaBg:        '#111827',
+    ctaHover:     '#374151',
+    ctaText:      '#ffffff',
+    uploadBorder: '#d1d5db',
+    uploadBg:     '#f9fafb',
+    uploadIcon:   '#9ca3af',
+    successBorder:'#4ade80',
+    successBg:    '#f0fdf4',
+    successText:  '#16a34a',
+    errorText:    '#ef4444',
+  };
+
+  function validateFile(file) {
+    const ok = file.name.endsWith('.pdf') || file.name.endsWith('.docx');
+    return ok ? null : 'Unsupported format — please upload a PDF or DOCX file.';
+  }
+
+  function handleJdFile(file) {
+    const err = validateFile(file);
+    if (err) { setJdError(err); return; }
+    setJdFile(file); setJdError('');
+  }
+
+  function handleCvFile(file) {
+    const err = validateFile(file);
+    if (err) { setCvError(err); return; }
+    setCvFile(file); setCvError('');
+  }
+
+  async function handleSubmit() {
+    let valid = true;
+
+    if (jdMode === 'text' && !jdText.trim()) {
+      setJdError('Please paste the job description text.'); valid = false;
+    } else if (jdMode === 'file' && !jdFile) {
+      setJdError('Please upload a job description file.'); valid = false;
+    } else { setJdError(''); }
+
+    if (!cvFile) {
+      setCvError('Please upload your CV.'); valid = false;
+    } else { setCvError(''); }
+
+    if (!valid) return;
+
+    // --- Session cache check ---
+    // Build a fingerprint from the inputs. Not cryptographic — just enough
+    // to detect same-session resubmission of identical JD + CV.
+    const jdSignature = jdMode === 'text'
+      ? `text:${jdText.length}:${jdText.slice(0, 100)}`
+      : `file:${jdFile.name}:${jdFile.size}`;
+    const cvSignature = `${cvFile.name}:${cvFile.size}`;
+    const fingerprint = `${jdSignature}|${cvSignature}`;
+
+    const cachedResult = sessionStorage.getItem('analysisResult');
+    const cachedFingerprint = sessionStorage.getItem('analysisFingerprint');
+
+    if (cachedResult && cachedFingerprint === fingerprint) {
+      router.push('/results');
+      return;
+    }
+    // --- End cache check ---
+
+    setLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('jdMode', jdMode);
+      if (jdMode === 'text') formData.append('jdText', jdText);
+      else formData.append('jdFile', jdFile);
+      formData.append('cvFile', cvFile);
+
+      const res = await fetch('/api/analyse', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error('Analysis failed');
+
+      const data = await res.json();
+      const { jdText: extractedJd, cvText: extractedCv, ...analysisResult } = data;
+      sessionStorage.setItem('analysisResult', JSON.stringify(analysisResult));
+      sessionStorage.setItem('analysisFingerprint', fingerprint);
+      sessionStorage.setItem('jobDescription', extractedJd || '');
+      sessionStorage.setItem('cvText', extractedCv || '');
+      router.push('/results');
+    } catch {
+      setJdError('Something went wrong. Please try again.');
+      setLoading(false);
+    }
+  }
+
+  function uploadZoneStyle(hasFile) {
+    return {
+      border: `1px dashed ${hasFile ? c.successBorder : c.uploadBorder}`,
+      borderRadius: '10px',
+      padding: '28px 24px',
+      textAlign: 'center',
+      cursor: 'pointer',
+      background: hasFile ? c.successBg : c.uploadBg,
+      transition: 'background 0.15s',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+    };
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <main style={{ minHeight: '100vh', backgroundColor: c.pageBg, padding: '64px 16px', fontFamily: 'var(--font-geist-sans, sans-serif)', transition: 'background-color 0.2s' }}>
+      <div style={{ maxWidth: '560px', margin: '0 auto' }}>
+
+        {/* Logo */}
+        <p style={{ fontSize: '11px', fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: c.textSecondary, marginBottom: '40px' }}>
+          <span style={{ color: c.textPrimary }}>CareerPrep</span> — AI
+        </p>
+
+        {/* JD section */}
+        <div style={{ background: c.cardBg, border: `1px solid ${c.cardBorder}`, borderRadius: '16px', padding: '24px', marginBottom: '16px' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <span style={{ fontSize: '14px', fontWeight: 500, color: c.textPrimary }}>Job description</span>
+
+            <div style={{ display: 'flex', gap: '4px', background: c.toggleBg, border: `1px solid ${c.toggleBorder}`, borderRadius: '8px', padding: '3px' }}>
+              {['text', 'file'].map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => { setJdMode(mode); setJdError(''); }}
+                  style={{
+                    padding: '5px 14px', fontSize: '13px', border: 'none',
+                    borderRadius: '6px', cursor: 'pointer',
+                    fontWeight: jdMode === mode ? 500 : 400,
+                    background: jdMode === mode ? c.activeBtn : 'transparent',
+                    color: jdMode === mode ? c.textPrimary : c.textSecondary,
+                    boxShadow: jdMode === mode ? c.activeShadow : 'none',
+                    transition: 'all 0.15s', fontFamily: 'inherit',
+                  }}
+                >
+                  {mode === 'text' ? 'Paste text' : 'Upload file'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {jdMode === 'text' && (
+            <textarea
+              style={{
+                width: '100%', minHeight: '160px', resize: 'vertical',
+                background: c.inputBg, border: `1px solid ${c.inputBorder}`,
+                borderRadius: '10px', padding: '12px', fontSize: '14px',
+                color: c.textPrimary, lineHeight: 1.6, outline: 'none',
+                boxSizing: 'border-box', fontFamily: 'inherit',
+              }}
+              placeholder="Paste the full job description here…"
+              value={jdText}
+              onChange={(e) => setJdText(e.target.value)}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          )}
+
+          {jdMode === 'file' && (
+            <>
+              <input type="file" accept=".pdf,.docx" ref={jdFileRef} style={{ display: 'none' }}
+                onChange={(e) => e.target.files[0] && handleJdFile(e.target.files[0])} />
+              <div style={uploadZoneStyle(!!jdFile)}
+                onClick={() => jdFileRef.current.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleJdFile(f); }}>
+                {jdFile ? (
+                  <>
+                    <CheckIcon color={c.successText} />
+                    <p style={{ fontSize: '14px', fontWeight: 500, color: c.successText, margin: 0 }}>{jdFile.name}</p>
+                    <button onClick={(e) => { e.stopPropagation(); setJdFile(null); jdFileRef.current.value = ''; }}
+                      style={{ marginTop: '8px', fontSize: '12px', color: c.errorText, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+                      Remove
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <UploadIcon color={c.uploadIcon} />
+                    <p style={{ fontSize: '14px', color: c.textSecondary, margin: 0 }}>Click to upload or drag and drop</p>
+                    <p style={{ fontSize: '12px', color: c.textMuted, marginTop: '4px', marginBottom: 0 }}>PDF or DOCX</p>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {jdError && <p style={{ marginTop: '8px', fontSize: '12px', color: c.errorText }}>⚠ {jdError}</p>}
         </div>
-      </main>
-    </div>
+
+        {/* CV section */}
+        <div style={{ background: c.cardBg, border: `1px solid ${c.cardBorder}`, borderRadius: '16px', padding: '24px', marginBottom: '24px' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <span style={{ fontSize: '14px', fontWeight: 500, color: c.textPrimary }}>Your CV</span>
+            <span style={{ fontSize: '11px', color: c.textMuted, background: c.badgeBg, border: `1px solid ${c.badgeBorder}`, borderRadius: '6px', padding: '3px 8px' }}>
+              PDF or DOCX
+            </span>
+          </div>
+
+          <input type="file" accept=".pdf,.docx" ref={cvFileRef} style={{ display: 'none' }}
+            onChange={(e) => e.target.files[0] && handleCvFile(e.target.files[0])} />
+          <div style={uploadZoneStyle(!!cvFile)}
+            onClick={() => cvFileRef.current.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleCvFile(f); }}>
+            {cvFile ? (
+              <>
+                <CheckIcon color={c.successText} />
+                <p style={{ fontSize: '14px', fontWeight: 500, color: c.successText, margin: 0 }}>{cvFile.name}</p>
+                <button onClick={(e) => { e.stopPropagation(); setCvFile(null); cvFileRef.current.value = ''; }}
+                  style={{ marginTop: '8px', fontSize: '12px', color: c.errorText, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+                  Remove
+                </button>
+              </>
+            ) : (
+              <>
+                <UploadIcon color={c.uploadIcon} />
+                <p style={{ fontSize: '14px', color: c.textSecondary, margin: 0 }}>Click to upload or drag and drop</p>
+                <p style={{ fontSize: '12px', color: c.textMuted, marginTop: '4px', marginBottom: 0 }}>PDF or DOCX</p>
+              </>
+            )}
+          </div>
+
+          {cvError && <p style={{ marginTop: '8px', fontSize: '12px', color: c.errorText }}>⚠ {cvError}</p>}
+        </div>
+
+        {/* Submit */}
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          onMouseEnter={(e) => { if (!loading) e.currentTarget.style.backgroundColor = c.ctaHover; }}
+          onMouseLeave={(e) => { if (!loading) e.currentTarget.style.backgroundColor = c.ctaBg; }}
+          style={{
+            width: '100%', padding: '14px', fontSize: '15px', fontWeight: 500,
+            color: c.ctaText, backgroundColor: c.ctaBg,
+            border: 'none', borderRadius: '12px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.5 : 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            transition: 'background-color 0.15s', fontFamily: 'inherit',
+          }}
+        >
+         {loading ? 'Analysing…' : '✦ Analyse fit'}
+        </button>
+
+      </div>
+    </main>
   );
 }
