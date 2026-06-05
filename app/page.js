@@ -21,10 +21,35 @@ function CheckIcon({ color }) {
   );
 }
 
+function SunIcon({ color }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/>
+      <line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/>
+      <line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+  );
+}
+
+function MoonIcon({ color }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
 
   const [isDark, setIsDark] = useState(true);
+  const [themeOverride, setThemeOverride] = useState(null); // null = follow system
   const [jdMode, setJdMode] = useState('text');
   const [jdText, setJdText] = useState('');
   const [jdFile, setJdFile] = useState(null);
@@ -38,11 +63,17 @@ export default function Home() {
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    setIsDark(mq.matches);
-    const handler = (e) => setIsDark(e.matches);
+    if (themeOverride === null) setIsDark(mq.matches);
+    const handler = (e) => { if (themeOverride === null) setIsDark(e.matches); };
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
-  }, []);
+  }, [themeOverride]);
+
+  function toggleTheme() {
+    const next = !isDark;
+    setIsDark(next);
+    setThemeOverride(next ? 'dark' : 'light');
+  }
 
   const c = isDark ? {
     pageBg:       '#0a0a0a',
@@ -55,8 +86,8 @@ export default function Home() {
     activeBtn:    '#2a2a2a',
     activeShadow: '0 1px 3px rgba(0,0,0,0.4)',
     textPrimary:  '#ededed',
-    textSecondary:'#888888',
-    textMuted:    '#555555',
+    textSecondary:'#b0b0b0',
+    textMuted:    '#707070',
     badgeBg:      '#1a1a1a',
     badgeBorder:  '#2e2e2e',
     ctaBg:        '#ffffff',
@@ -64,11 +95,14 @@ export default function Home() {
     ctaText:      '#0a0a0a',
     uploadBorder: '#2e2e2e',
     uploadBg:     '#1a1a1a',
-    uploadIcon:   '#555555',
+    uploadIcon:   '#707070',
     successBorder:'#166534',
     successBg:    '#052e16',
     successText:  '#4ade80',
     errorText:    '#f87171',
+    themeBtnBg:   '#1a1a1a',
+    themeBtnBorder:'#2e2e2e',
+    themeBtnColor:'#b0b0b0',
   } : {
     pageBg:       '#f9fafb',
     cardBg:       '#ffffff',
@@ -80,8 +114,8 @@ export default function Home() {
     activeBtn:    '#ffffff',
     activeShadow: '0 1px 3px rgba(0,0,0,0.1)',
     textPrimary:  '#111827',
-    textSecondary:'#6b7280',
-    textMuted:    '#9ca3af',
+    textSecondary:'#4b5563',
+    textMuted:    '#6b7280',
     badgeBg:      '#f3f4f6',
     badgeBorder:  '#e5e7eb',
     ctaBg:        '#111827',
@@ -89,11 +123,14 @@ export default function Home() {
     ctaText:      '#ffffff',
     uploadBorder: '#d1d5db',
     uploadBg:     '#f9fafb',
-    uploadIcon:   '#9ca3af',
+    uploadIcon:   '#6b7280',
     successBorder:'#4ade80',
     successBg:    '#f0fdf4',
     successText:  '#16a34a',
     errorText:    '#ef4444',
+    themeBtnBg:   '#f3f4f6',
+    themeBtnBorder:'#e5e7eb',
+    themeBtnColor:'#4b5563',
   };
 
   function validateFile(file) {
@@ -128,9 +165,6 @@ export default function Home() {
 
     if (!valid) return;
 
-    // --- Session cache check ---
-    // Build a fingerprint from the inputs. Not cryptographic — just enough
-    // to detect same-session resubmission of identical JD + CV.
     const jdSignature = jdMode === 'text'
       ? `text:${jdText.length}:${jdText.slice(0, 100)}`
       : `file:${jdFile.name}:${jdFile.size}`;
@@ -144,7 +178,6 @@ export default function Home() {
       router.push('/results');
       return;
     }
-    // --- End cache check ---
 
     setLoading(true);
 
@@ -190,10 +223,27 @@ export default function Home() {
     <main style={{ minHeight: '100vh', backgroundColor: c.pageBg, padding: '64px 16px', fontFamily: 'var(--font-geist-sans, sans-serif)', transition: 'background-color 0.2s' }}>
       <div style={{ maxWidth: '560px', margin: '0 auto' }}>
 
-        {/* Logo */}
-        <p style={{ fontSize: '11px', fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: c.textSecondary, marginBottom: '40px' }}>
-          <span style={{ color: c.textPrimary }}>CareerPrep</span> — AI
-        </p>
+        {/* Logo + theme toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
+          <p style={{ fontSize: '11px', fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: c.textSecondary, margin: 0 }}>
+            <span style={{ color: c.textPrimary }}>CareerPrep</span> — AI
+          </p>
+          <button
+            onClick={toggleTheme}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              fontSize: '12px', color: c.themeBtnColor,
+              background: c.themeBtnBg,
+              border: `1px solid ${c.themeBtnBorder}`,
+              borderRadius: '8px', padding: '5px 10px',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            {isDark ? <SunIcon color={c.themeBtnColor} /> : <MoonIcon color={c.themeBtnColor} />}
+            {isDark ? 'Light' : 'Dark'}
+          </button>
+        </div>
 
         {/* JD section */}
         <div style={{ background: c.cardBg, border: `1px solid ${c.cardBorder}`, borderRadius: '16px', padding: '24px', marginBottom: '16px' }}>
@@ -321,7 +371,7 @@ export default function Home() {
             transition: 'background-color 0.15s', fontFamily: 'inherit',
           }}
         >
-         {loading ? 'Analysing…' : '✦ Analyse fit'}
+          {loading ? 'Analysing…' : '✦ Analyse fit'}
         </button>
 
       </div>
