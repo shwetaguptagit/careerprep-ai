@@ -142,7 +142,8 @@ async function executeTool(name, input) {
 }
 
 export async function POST(request) {
-  const apiKey = request.headers.get('x-api-key');
+  const apiKey = request.headers.get('x-api-key') || 
+               new URL(request.url).searchParams.get('key');
   if (!MCP_API_KEY || apiKey !== MCP_API_KEY) {
     return Response.json(
       { jsonrpc: '2.0', error: { code: -32001, message: 'Unauthorised' }, id: null },
