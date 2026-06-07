@@ -1,4 +1,4 @@
-# CareerPrep-AI — Project Context
+# FirstLight Careers — Project Context
 
 ## What this project is
 An AI-powered job seeker tool that helps candidates prepare for interviews. The core loop: upload a JD + CV → get a rubric-based fit score and gap analysis → receive personalised preparation resources including a Project Charter, Training Materials, and a CV Rewrite.
@@ -28,7 +28,7 @@ Built by a Senior PM with no prior coding experience — primary goals are to le
 - Phase 5 in progress:
   - Web search tool (agentic Training Materials) — built, tested, reverted ⚠️ (cost — see Phase 5 backlog)
   - Training Materials route — resilience improvements applied ✅
-  - MCP server — architecture finalised, build starting next session ⬜
+  - MCP server — built, deployed, tested, connected to Claude.ai ✅
 
 ---
 
@@ -117,20 +117,20 @@ Threshold: below 60 = low fit.
 | File parsing | unpdf + mammoth | PDF + DOCX extraction |
 | DOCX generation | docx (npm) | Client-side, browser Blob download |
 | IDE | Cursor | Free tier |
-| Version control | GitHub | github.com/shwetaguptagit/careerprep-ai (public) |
-| MCP server | Next.js API route `/api/mcp` | Planned — same Vercel deployment, no extra cost |
+| Version control | GitHub | github.com/shwetaguptagit/firstlight-careers (public) |
+| MCP server | Next.js API route `/api/mcp` | Live — same Vercel deployment, connected to Claude.ai ✅ |
 
 ---
 
 ## Project setup (completed)
 
 - Node.js installed (v20.x.x)
-- Next.js app scaffolded at `/Users/sg/careerprep-ai`
+- Next.js app scaffolded at `/Users/sg/firstlight-careers`
 - Setup choices: No TypeScript, ESLint, Tailwind yes, no src/ dir, App Router yes
 - Packages installed: `@anthropic-ai/sdk`, `unpdf`, `mammoth`, `docx`
 - `.env.local` created with `ANTHROPIC_API_KEY` — confirmed NOT pushed to GitHub
 - Model in use: `claude-sonnet-4-6`
-- GitHub repo: `careerprep-ai` (public)
+- GitHub repo: `firstlight-careers` (public)
 
 ---
 
@@ -151,14 +151,16 @@ Threshold: below 60 = low fit.
 - **DOCX bullet rule** — use `LevelFormat.BULLET` with numbering config, never unicode `•` characters directly in TextRun.
 - **Training Materials resilience** — JSON extraction uses `raw.match(/\{[\s\S]*\}/)` regex, not just backtick strip. Catches Claude narrating prose instead of returning JSON. Empty response guard added before parse. Specific catch blocks for 401/429/403.
 - **Web search agentic loop (reverted)** — `web_search_20260209` is an Anthropic server tool; no separate search API needed. Loop pattern: `while(true)` → check `stop_reason` → if `tool_use`, push assistant content + tool_results back into messages array → loop → break on `end_turn`. `max_uses` caps search count. Reverted: cost 3–6x higher than single-call. Implementation correct and understood.
-- **MCP server API key protection** — add `x-api-key` header check at top of `/api/mcp/route.js`. Reject without valid key before touching Claude API. Store as `MCP_API_KEY` in `.env.local` and Vercel env vars.
+- **MCP server API key protection** — accepts key via `x-api-key` header OR `?key=` query param. Query param required for Claude.ai connector (no custom header field in UI). Reject without valid key before touching Claude API. Store as `MCP_API_KEY` in `.env.local` and Vercel env vars.
+- **MCP analyse_fit — txt blob workaround** — MCP passes CV as plain string. Wrapped as `.txt` Blob before posting to `/api/analyse`. Added `.txt` handler to `extractFileText`: `return buffer.toString('utf-8').trim()`.
+- **NEXT_PUBLIC_APP_URL** — required in Vercel env vars so MCP server's internal fetch calls resolve correctly in production. Falls back to `http://localhost:3000` locally.
 
 ---
 
 ## File structure (current + planned)
 
 ```
-/Users/sg/careerprep-ai/
+/Users/sg/firstlight-careers/
 ├── app/
 │   ├── api/
 │   │   ├── analyse/route.js        ← extraction + scoring + returns jdText + cvText
@@ -166,7 +168,7 @@ Threshold: below 60 = low fit.
 │   │   ├── training/route.js       ← Training Materials (max_tokens: 3000) — resilience improved
 │   │   ├── cvrewrite/route.js      ← CV Rewrite — sections JSON + change log (max_tokens: 4000)
 │   │   ├── extract/route.js        ← standalone extraction endpoint
-│   │   └── mcp/route.js            ← MCP server — PLANNED next session
+│   │   └── mcp/route.js            ← MCP server — live ✅ (analyse_fit, generate_charter, generate_training, generate_cvrewrite)
 │   ├── results/page.js             ← accordion UI, drawer pattern, DOCX generation
 │   ├── globals.css
 │   ├── layout.js
@@ -230,7 +232,7 @@ git push origin main
 > **MCP server — architecture finalised, build next session**
 > Decision arrived at by exploring Google Docs export options. Evaluated: DOCX download (already exists), Google Drive MCP (Claude.ai only — not callable from web app), Service Account (works but skips auth learning), full OAuth (Phase 2). MCP server on Vercel emerged as the right Phase 1 move — portfolio signal, no extra hosting cost, tools already built, sets up Google Docs as Phase 2 tool addition. Key insight confirmed: MCP tools in Claude.ai are not callable from a deployed web app — they are AI assistant features, not application runtime features. Self-hosted MCP is the pattern that enables web app users to benefit.
 
-- MCP server — `app/api/mcp/route.js` — expose all 4 routes as tools, API key protected ⬜
+- MCP server — `app/api/mcp/route.js` — expose all 4 routes as tools, API key protected ✅
 - MCP Phase 2 — Google Docs API as fifth tool, user OAuth, persist Doc ID in session ⬜
 - Web search tool use — Training Materials resource verification (built, reverted — cost; revisit with monetisation) ⬜
 - Evals framework — scoring accuracy validation against test fixtures ⬜
@@ -240,10 +242,10 @@ git push origin main
 
 ---
 
-## MCP server — architecture (finalised)
+## MCP server — built and live ✅
 
 ### What it is
-A new API route `/api/mcp` in the existing Next.js app. Hosted on Vercel at no extra cost. Exposes existing CareerPrep-AI routes as MCP-protocol tools callable by AI assistants (Claude.ai, Cursor, any MCP-compatible client).
+A new API route `/api/mcp` in the existing Next.js app. Hosted on Vercel at no extra cost. Exposes existing FirstLight Careers routes as MCP-protocol tools callable by AI assistants (Claude.ai, Cursor, any MCP-compatible client).
 
 ### Tools exposed
 | Tool | Reuses | Description |
@@ -255,7 +257,7 @@ A new API route `/api/mcp` in the existing Next.js app. Hosted on Vercel at no e
 
 ### Architecture diagram
 ```
-CareerPrep-AI (Vercel)
+FirstLight Careers (Vercel)
 ├── Web App (unchanged — users interact as today)
 └── MCP Server /api/mcp
     ├── analyse_fit
@@ -268,13 +270,21 @@ CareerPrep-AI (Vercel)
 
 ### Security
 - `x-api-key` header check on every request to `/api/mcp`
+- Also accepts key via `?key=` query param — required for Claude.ai custom connector (UI has no header field)
 - Rejected before Claude API is called if key missing/invalid
 - Key stored as `MCP_API_KEY` in `.env.local` + Vercel env vars
+- `NEXT_PUBLIC_APP_URL` set in Vercel env vars — MCP server uses this to call internal routes correctly in production
 
-### Availability after deploy
+### Key technical decisions and gotchas
+- **analyse_fit accepts text only via MCP** — MCP communicates in JSON, can't send binary files. CV text passed as plain string, wrapped as `.txt` Blob before posting to `/api/analyse`. One-line `.txt` handler added to `extractFileText` in analyse route.
+- **Claude.ai connector uses query param auth** — Claude.ai custom connector UI has no field for custom headers. Key passed as `?key=your-key` in the URL instead of `x-api-key` header. Route accepts both.
+- **Internal fetch uses APP_BASE_URL** — MCP server calls its own routes via fetch. Must use full URL, not relative path. Falls back to `http://localhost:3000` for local dev.
+- **JSON-RPC protocol** — MCP uses JSON-RPC 2.0. Three methods handled: `initialize` (handshake), `tools/list` (returns tool menu), `tools/call` (executes a tool and returns result).
+
+### Availability
 | Consumer | How |
 |---|---|
-| Owner (you) | Add as custom connector in Claude.ai settings |
+| Owner (you) | Added as custom connector in Claude.ai settings ✅ |
 | Anyone you share URL + key with | Add manually as custom connector |
 | All Claude.ai users | Requires Anthropic directory listing — future milestone |
 | Cursor/Windsurf users | Add URL in editor MCP config |
@@ -293,11 +303,10 @@ Add `save_to_google_doc` as a fifth tool. Requires Google OAuth in backend. User
 | Training Materials resources | Knowledge-based generation (not RAG, not tool use) |
 | All outputs | Zero-shot with JSON schema constraints — no fine-tuning, no vector DB |
 | Web search agent (built, reverted) | Agentic loop — server tool use, multi-turn tool call handling, stop_reason loop, Claude-driven planning |
-| MCP server (in build) | Tool exposure via MCP protocol, AI orchestration, interoperability |
+| MCP server (live) | Tool exposure via MCP protocol, AI orchestration, interoperability |
 
-**In production:** Prompt engineering, structured outputs, LLM-as-judge.
+**In production:** Prompt engineering, structured outputs, LLM-as-judge, MCP server.
 **Built and understood:** Agentic tool use loop — reverted on cost, not complexity.
-**In build:** MCP server — portfolio signal + agentic architecture foundation.
 **Not in project:** RAG, fine-tuning, embeddings.
 
 ---
@@ -306,7 +315,7 @@ Add `save_to_google_doc` as a fifth tool. Requires Google OAuth in backend. User
 - Senior PM, 12 years across consumer revenue, media, e-commerce, AI
 - No prior coding experience — built entirely with Cursor + Claude
 - Building to learn tech stack hands-on and strengthen AI PM profile
-- GitHub: github.com/shwetaguptagit/careerprep-ai
+- GitHub: github.com/shwetaguptagit/firstlight-careers
 
 ---
 
@@ -315,7 +324,7 @@ Add `save_to_google_doc` as a fifth tool. Requires Google OAuth in backend. User
 Job hunting + zero coding experience + 3 days = somehow a deployed AI product.
 Job hunting is hard. So I built an AI tool to make it slightly less hard.
 I was staring at a JD, staring at my CV, and thinking — am I a fit? Should I even apply? What do I even prepare for? The gap between "I think I'm good" and "I can prove I'm ready" felt annoyingly wide.
-Meet CareerPrep-AI — built by me, for me, currently being used by me for my own job hunt. Full circle.
+Meet FirstLight Careers — built by me, for me, currently being used by me for my own job hunt. Full circle.
 What it does: Upload your CV + JD →
 * Fit score with breakdown across skills, experience, domain, and project relevance
 * Gap analysis tagged by severity — honest, not reassuring
@@ -332,4 +341,5 @@ What I actually learned:
 * That "not impossible anymore" is real. Quietly, genuinely real.
 What's next: The manual copy-paste era ends here. Next chapter: real agentic workflows — autonomous tool use, web search, multi-step reasoning. Building in public while I job hunt, improving the tool as I use it.
 And yes, the love-hate relationship with AI gets more real every day. Wouldn't have it any other way 🙂
-👉 github.com/shwetaguptagit/careerprep-ai
+
+👉 github.com/shwetaguptagit/firstlight-careers
