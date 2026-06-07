@@ -581,7 +581,7 @@ export default function Results() {
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '36px' }}>
             <p style={{ fontSize: '11px', fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: c.textSecondary, margin: 0 }}>
-              <span style={{ color: c.textPrimary }}>CareerPrep</span> — AI
+              <span style={{ color: c.textPrimary }}>FirstLight</span> Careers
             </p>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button onClick={toggleTheme} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: c.themeBtnColor, background: c.themeBtnBg, border: `1px solid ${c.themeBtnBorder}`, borderRadius: '7px', padding: '5px 9px', cursor: 'pointer', fontFamily: 'inherit' }}>

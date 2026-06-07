@@ -223,7 +223,7 @@ export default function Home() {
         {/* Logo + theme toggle */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
           <p style={{ fontSize: '11px', fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: c.textSecondary, margin: 0 }}>
-            <span style={{ color: c.textPrimary }}>CareerPrep</span> — AI
+            <span style={{ color: c.textPrimary }}>FirstLight</span> Careers
           </p>
           <button
             onClick={toggleTheme}
