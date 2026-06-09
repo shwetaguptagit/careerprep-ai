@@ -47,7 +47,7 @@ function MoonIcon({ color }) {
 
 export default function Home() {
   const router = useRouter();
-
+  const isSubmitting = useRef(false);
   const [isDark, setIsDark] = useState(false);
   const [themeOverride, setThemeOverride] = useState(null);
   const [jdMode, setJdMode] = useState('text');
@@ -148,6 +148,8 @@ export default function Home() {
   }
 
   async function handleSubmit() {
+    if (isSubmitting.current) return; 
+    isSubmitting.current = true; 
     let valid = true;
 
     if (jdMode === 'text' && !jdText.trim()) {
@@ -198,6 +200,7 @@ export default function Home() {
     } catch {
       setJdError('Something went wrong. Please try again.');
       setLoading(false);
+      isSubmitting.current = false; 
     }
   }
 

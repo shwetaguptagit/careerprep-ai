@@ -7,7 +7,7 @@ const TOOLS = [
   {
     name: 'analyse_fit',
     description:
-      'Score a candidate CV against a job description using a rubric. Returns fit score (0–100), score breakdown, strengths, gaps with severity, and a low-fit flag. Run this first before calling any generation tool.',
+    'Score a candidate CV against a job description using a rubric. Returns fit score (0–100), score breakdown, strengths, gaps with severity, mandatoryGaps, advisoryFlags, weightsMeta showing how weights were derived from the JD, and a low-fit flag. Run this first before calling any generation tool.',
     inputSchema: {
       type: 'object',
       properties: {

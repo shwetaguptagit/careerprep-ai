@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Document, Packer, Paragraph, TextRun,
@@ -73,6 +73,7 @@ function AccordionCard({ isOpen, onToggle, headerLeft, headerRight, dividerColor
 
 export default function Results() {
   const router = useRouter();
+  const hasLoaded = useRef(false);
 
   const [data, setData]         = useState(null);
   const [jd, setJd]             = useState('');
@@ -89,7 +90,14 @@ export default function Results() {
   const [cvRewrite, setCvRewrite]           = useState(null);
   const [cvRewriteStatus, setCvRewriteStatus] = useState(null);
 
-  const [openSections, setOpenSections] = useState({ fitScore: true, strengths: false, gaps: false, prep: false });
+  const [openSections, setOpenSections] = useState({ 
+    fitScore: true, 
+    strengths: false, 
+    gaps: false, 
+    mandatoryGaps: true,   // ← add
+    advisoryFlags: true,   // ← add
+    prep: false 
+  });
   const [drawer, setDrawer] = useState(null); // 'charter' | 'training' | 'cvrewrite' | null
 
   useEffect(() => {
@@ -98,6 +106,9 @@ export default function Results() {
   }, []);
 
   useEffect(() => {
+    if (hasLoaded.current) return;
+    hasLoaded.current = true;
+
     const raw = sessionStorage.getItem('analysisResult');
     const savedJd = sessionStorage.getItem('jobDescription');
     const savedCv = sessionStorage.getItem('cvText');
@@ -181,12 +192,14 @@ export default function Results() {
     ? (isDark ? '#fbbf24' : '#d97706')
     : (isDark ? '#f87171' : '#dc2626');
 
-  const rubricItems = [
-    { key: 'mandatorySkills',  label: 'Mandatory skills',  max: 40 },
-    { key: 'experienceLevel',  label: 'Experience level',  max: 25 },
-    { key: 'domainFit',        label: 'Domain / industry', max: 20 },
-    { key: 'projectRelevance', label: 'Project relevance', max: 15 },
-  ];
+    const weights = data.weightsMeta?.weights || { skill: 40, experience: 25, domain: 20, project: 15 };
+
+    const rubricItems = [
+      { key: 'mandatorySkills',  label: 'Mandatory skills',  max: weights.skill },
+      { key: 'experienceLevel',  label: 'Experience level',  max: weights.experience },
+      { key: 'domainFit',        label: 'Domain / industry', max: weights.domain },
+      { key: 'projectRelevance', label: 'Project relevance', max: weights.project },
+    ];
 
   const gapColors = {
     high:   { bg: c.gapHighBg, border: c.gapHighBorder, text: c.gapHighText, label: 'High' },
@@ -650,6 +663,33 @@ export default function Results() {
                 );
               })}
             </div>
+            {/* Weight transparency */}
+            <Divider />
+            <SectionLabel text="How weights were calculated" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {[
+                  { label: 'Skills', value: weights.skill },
+                  { label: 'Experience', value: weights.experience },
+                  { label: 'Domain', value: weights.domain },
+                  { label: 'Projects', value: weights.project },
+                ].map(({ label, value }) => (
+                  <span key={label} style={{ fontSize: '11px', color: c.textSecondary, background: c.badgeBg, border: `1px solid ${c.badgeBorder}`, borderRadius: '6px', padding: '3px 8px' }}>
+                    {label} {value}%
+                  </span>
+                ))}
+              </div>
+              {data.weightsMeta?.fallback ? (
+                <p style={{ fontSize: '11px', color: c.warnText, margin: '4px 0 0 0' }}>
+                  ⚠ JD structure was ambiguous — default weights applied.
+                </p>
+              ) : (
+                <p style={{ fontSize: '11px', color: c.textMuted, margin: '4px 0 0 0' }}>
+                 ℹ Weights inferred from {data.weightsMeta?.totalCount} requirements found in this JD.
+                 {data.weightsMeta?.confidence === 'medium' && ' Weights estimated — JD had limited structure.'}
+                </p>
+              )}
+            </div>
           </AccordionCard>
 
           {/* Strengths accordion */}
@@ -705,7 +745,51 @@ export default function Results() {
               </div>
             </AccordionCard>
           )}
+            {/* Mandatory gaps */}
+{data.mandatoryGaps?.length > 0 && (
+  <AccordionCard
+    isOpen={openSections.mandatoryGaps}
+    onToggle={() => toggleSection('mandatoryGaps')}
+    cardBg={c.cardBg} cardBorder={c.gapHighBorder} dividerColor={c.divider} textMuted={c.textMuted}
+    headerLeft={<span style={{ fontSize: '13px', fontWeight: 500, color: c.gapHighText }}>🚫 Mandatory gaps</span>}
+    headerRight={<Pill color={c.gapHighText} bg={c.gapHighBg} border={c.gapHighBorder}>{data.mandatoryGaps.length}</Pill>}
+  >
+    <p style={{ fontSize: '12px', color: c.textMuted, margin: '0 0 12px 0' }}>
+      Explicitly required in the JD. Address before applying.
+    </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {data.mandatoryGaps.map((g, i) => (
+        <div key={i} style={{ background: c.gapHighBg, border: `1px solid ${c.gapHighBorder}`, borderRadius: '10px', padding: '11px 14px' }}>
+          <p style={{ fontSize: '12px', fontWeight: 500, color: c.gapHighText, margin: '0 0 4px 0' }}>{g.requirement}</p>
+          <p style={{ fontSize: '12px', color: c.gapHighText, margin: 0, opacity: 0.85, lineHeight: 1.55 }}>↳ {g.gap}</p>
+        </div>
+      ))}
+    </div>
+  </AccordionCard>
+)}
 
+          {/* Advisory flags */}
+          {data.advisoryFlags?.length > 0 && (
+            <AccordionCard
+              isOpen={openSections.advisoryFlags}
+              onToggle={() => toggleSection('advisoryFlags')}
+              cardBg={c.cardBg} cardBorder={c.cardBorder} dividerColor={c.divider} textMuted={c.textMuted}
+              headerLeft={<span style={{ fontSize: '13px', fontWeight: 500, color: c.warnText }}>ℹ Advisory</span>}
+              headerRight={<Pill color={c.warnText} bg={c.warnBg} border={c.warnBorder}>{data.advisoryFlags.length}</Pill>}
+            >
+              <p style={{ fontSize: '12px', color: c.textMuted, margin: '0 0 12px 0' }}>
+                For your judgment — not penalised in score.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {data.advisoryFlags.map((f, i) => (
+                  <div key={i} style={{ background: c.warnBg, border: `1px solid ${c.warnBorder}`, borderRadius: '10px', padding: '11px 14px' }}>
+                    <p style={{ fontSize: '12px', fontWeight: 500, color: c.warnText, margin: '0 0 4px 0' }}>{f.area}</p>
+                    <p style={{ fontSize: '12px', color: c.warnText, margin: 0, opacity: 0.85, lineHeight: 1.55 }}>{f.note}</p>
+                  </div>
+                ))}
+              </div>
+            </AccordionCard>
+          )}
           {/* Preparation package accordion */}
           <AccordionCard
             isOpen={openSections.prep}
