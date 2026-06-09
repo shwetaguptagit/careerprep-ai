@@ -78,7 +78,10 @@ export default function Results() {
   const [data, setData]         = useState(null);
   const [jd, setJd]             = useState('');
   const [cvText, setCvText]     = useState('');
-  const [isDark, setIsDark]     = useState(false);
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('theme') === 'dark';
+  });
   const [themeOverride, setThemeOverride] = useState(null);
 
   const [charter, setCharter]           = useState(null);
@@ -101,11 +104,6 @@ export default function Results() {
   const [drawer, setDrawer] = useState(null); // 'charter' | 'training' | 'cvrewrite' | null
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('theme');
-    if (saved) setIsDark(saved === 'dark');
-  }, []);
-
-  useEffect(() => {
     if (hasLoaded.current) return;
     hasLoaded.current = true;
 
@@ -114,8 +112,11 @@ export default function Results() {
     const savedCv = sessionStorage.getItem('cvText');
     if (!raw) { router.push('/'); return; }
     try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setData(JSON.parse(raw));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setJd(savedJd || '');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCvText(savedCv || '');
     } catch { router.push('/'); }
   }, []);

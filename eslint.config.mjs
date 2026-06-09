@@ -3,12 +3,6 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
-  {
-    rules: {
-      'react/no-unstable-nested-components': 'off',
-      'react-hooks/static-components': 'off',
-    },
-  },
   globalIgnores([
     ".next/**",
     "out/**",
