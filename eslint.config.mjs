@@ -6,6 +6,7 @@ const eslintConfig = defineConfig([
   {
     rules: {
       'react/no-unstable-nested-components': 'off',
+      'react-hooks/static-components': 'off',
     },
   },
   globalIgnores([
