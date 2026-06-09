@@ -29,7 +29,7 @@ Identifies specific gaps between your profile and the role, each tagged by sever
 ## Tech stack
 
 - **Framework:** Next.js 16 (App Router)
-- **AI:** Anthropic Claude API (`claude-sonnet-4-6`) — structured JSON output, prompt-engineered rubric scoring
+- **AI:** Anthropic Claude API — `claude-haiku-4-5` (Pass 1: JD parsing for dynamic weight derivation) + `claude-sonnet-4-6` (Pass 2: scoring, charter, training, CV rewrite) — structured JSON output, two-pass evidence-first rubric scoring
 - **File parsing:** `unpdf` (PDF), `mammoth` (DOCX)
 - **Document generation:** `docx` (client-side DOCX export)
 - **Deployment:** Vercel
@@ -43,9 +43,16 @@ Identifies specific gaps between your profile and the role, each tagged by sever
 ```
 User uploads JD + CV
         ↓
-/api/analyse — Claude scores fit using a rubric, returns score + gaps + strengths
+/api/analyse — two-pass scoring pipeline:
+  Pass 1 (Haiku): JD parser extracts mandatory/preferred requirements with verbatim
+    quotes. Code validates quotes, derives dimension weights from signal counts.
+    Years-of-experience extracted as advisory flag only — not penalised in score.
+  Pass 2 (Sonnet): LLM-as-judge scores CV against derived weights.
+    Returns score + breakdown + gaps + mandatory gaps + advisory flags + weightsMeta.
         ↓
-Results page — accordion UI, gap severity pills, score breakdown
+Results page — accordion UI, gap severity pills, score breakdown + weight provenance
+  Mandatory gaps flagged separately. Advisory flags surfaced with context.
+  Weight transparency block shows how this JD's rubric was derived.
         ↓
 User generates outputs (independently):
   /api/charter   → Project Charter JSON → rendered in drawer
@@ -64,13 +71,19 @@ Each API route is a standalone Claude call. No agent loop, no vector database �
 I came into this project as a PM with no prior coding experience. I used Cursor as my IDE and Claude as a coding collaborator throughout.
 
 **Product decisions that shaped the build:**
-- Rubric-based scoring (not vibes-based) — configurable weights per dimension so the scoring is auditable and consistent
+- Two-pass dynamic scoring — weights derived from the JD itself via evidence counting, not preset rubrics. Every JD gets its own rubric.
+- Hallucination-contained extraction — LLM quotes validated against source text in code before being counted; low-confidence extractions fall back to base weights rather than silently producing wrong scores
+- Years-of-experience as advisory flag, not score penalty — surfaces the tension for the candidate to judge; doesn't let a number override a strong domain match
+- Weight transparency in the UI — users see how their JD's rubric was derived, making the score auditable
 - 60-point threshold for "low fit" — forces honest signal rather than always showing green
 - Structured JSON output for every Claude call — makes the UI deterministic and the outputs parseable
 - Client-side DOCX generation — avoids server-side file handling, keeps the architecture simple
 - Session-only state (no database) — right call for MVP; reduces attack surface and infrastructure cost
 
 **Technical concepts encountered for the first time:**
+- Two-pass LLM pipeline — separating extraction (Haiku) from reasoning (Sonnet) to contain hallucination and reduce cost
+- Evidence-first weight derivation — converting LLM extraction to deterministic scoring by doing the arithmetic in code, not in the model
+- Fuzzy string validation for hallucination detection — checking LLM-extracted quotes against source text before using them
 - LLM-as-judge pattern for rubric-grounded evaluation
 - Prompt engineering for structured output (JSON schema constraints, field-level length caps)
 - Tool use vs knowledge-based generation tradeoffs (training materials currently use model knowledge — web search via tool use is a planned improvement)
